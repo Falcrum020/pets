@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Питомцы из яиц</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:var(--tg-theme-bg-color,#fff);--tx:var(--tg-theme-text-color,#111);--hint:var(--tg-theme-hint-color,#888);--btn:var(--tg-theme-button-color,#3390ec);--btx:var(--tg-theme-button-text-color,#fff);--card:var(--tg-theme-secondary-bg-color,#f1f1f4)}
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+main{flex:1;padding:16px;max-width:480px;width:100%;margin:0 auto}
+.card{background:var(--card);border-radius:18px;padding:18px;text-align:center}
+.big{font-size:96px;line-height:1.2;display:inline-block;animation:b 2s ease-in-out infinite}
+.egg{animation:w 1.2s ease-in-out infinite}
+@keyframes b{50%{transform:translateY(-8px)}}
+@keyframes w{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+.m0{filter:drop-shadow(0 0 12px #fc0)}.m1{animation:b 2s infinite,h 4s linear infinite}.m2{filter:brightness(.35) drop-shadow(0 0 10px #70f)}
+@keyframes h{to{filter:hue-rotate(360deg)}}
+h2{font-size:22px;margin:6px 0}.hint{color:var(--hint);font-size:14px}
+.row{display:flex;align-items:center;gap:8px;margin:10px 0;text-align:left;font-size:14px}
+.row span:first-child{width:96px}.bar{flex:1;height:10px;background:var(--bg);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--btn);transition:width .4s}
+.acts{display:flex;gap:8px;margin-top:14px}
+button{flex:1;padding:12px 6px;border:0;border-radius:12px;background:var(--btn);color:var(--btx);font-size:15px;cursor:pointer}
+button.sec{background:var(--card);color:var(--tx)}
+.note{min-height:22px;margin-top:10px;font-size:14px}
+nav{display:flex;gap:6px;padding:8px 12px;background:var(--card)}
+nav button{background:none;color:var(--hint)}nav button.on{color:var(--btn);font-weight:600}
+.item{display:flex;justify-content:space-between;padding:12px;margin-top:8px;background:var(--card);border-radius:12px;cursor:pointer}
+.item.on{outline:2px solid var(--btn)}
+.col{text-align:left;margin:10px 0;font-size:15px;line-height:1.7}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav>
+<button data-t="pet">🐾 Питомец</button>
+<button data-t="pets">🥚 Питомцы</button>
+<button data-t="col">📖 Книга</button>
+</nav>
+<script>
+const tg=window.Telegram&&window.Telegram.WebApp;
+if(tg){tg.ready();tg.expand()}
+const haptic=(k,v)=>{try{tg.HapticFeedback[k](v)}catch(e){}};
+const HATCH=120*1000, COOLDOWN=864e5, DEC={s:6,m:4,e:3};
+// c=обычный u=необычный r=редкий e=эпический l=легендарный
+const R={c:["Обычный",60],u:["Необычный",25],r:["Редкий",10],e:["Эпический",4],l:["Легендарный",1]};
+const EGG={c:"🥚",u:"🥚",r:"🔷",e:"🔮",l:"🌟"};
+const SP={cat:["🐱","Кот","c","реальный","рыбку"],dog:["🐶","Собака","c","реальный","косточку"],rabbit:["🐰","Кролик","c","реальный","морковку"],hamster:["🐹","Хомяк","c","реальный","семечки"],duck:["🦆","Утёнок","c","реальный","крошки"],
+fox:["🦊","Лиса","u","реальный","ягоды"],owl:["🦉","Сова","u","реальный","мышку-игрушку"],penguin:["🐧","Пингвин","u","реальный","рыбу"],hedgehog:["🦔","Ёжик","u","реальный","яблочко"],
+panda:["🐼","Панда","r","реальный","бамбук"],octopus:["🐙","Осьминог","r","реальный","крабика"],sloth:["🦥","Ленивец","r","реальный","листики"],slime:["🟢","Слизень-маг","r","фантастический","кристаллы"],
+griffin:["🦅","Грифон","e","фантастический","мясо"],unicorn:["🦄","Единорог","e","фантастический","радужные сладости"],icewolf:["🐺","Ледяной волк","e","фантастический","мороженую рыбу"],kraken:["🦑","Кракен","e","фантастический","водоросли"],
+dragon:["🐉","Дракон","l","фантастический","раскалённые угли"],phoenix:["🔥","Феникс","l","фантастический","искры"],spirit:["🌿","Дух леса","l","фантастический","лунную росу"]};
+const MUT=[["золотой","m0"],["радужный","m1"],["теневой","m2"]];
+let S,tab="pet",note="";
+const now=()=>Date.now(),cl=v=>Math.max(0,Math.min(100,v));
+const cur=()=>S.pets.find(p=>p.id==S.active)||S.pets[0];
+
+function pick(){let x=Math.random()*100,a=0,r="c";for(const k in R){a+=R[k][1];if(x<a){r=k;break}}
+ const l=Object.keys(SP).filter(k=>SP[k][2]==r);return l[Math.floor(Math.random()*l.length)]}
+function newEgg(){const t=now();const p={id:t,sp:pick(),mut:Math.random()<.06?Math.floor(Math.random()*3):-1,hatchAt:t+HATCH,h:0,s:80,m:80,e:80,t};
+ S.pets.push(p);S.active=p.id;S.lastEgg=t}
+
+// Хранилище: Telegram CloudStorage (синхронизация между устройствами), запасной вариант localStorage
+const CS=tg&&tg.isVersionAtLeast&&tg.isVersionAtLeast("6.9")?tg.CloudStorage:null;
+function load(){return new Promise(res=>{
+ const fb=()=>{try{res(JSON.parse(localStorage.getItem("pets")))}catch(e){res(null)}};
+ if(CS)CS.getItem("pets",(err,v)=>{try{v?res(JSON.parse(v)):fb()}catch(e){fb()}});else fb()})}
+function save(){const j=JSON.stringify(S);try{localStorage.setItem("pets",j)}catch(e){}if(CS)CS.setItem("pets",j,()=>{})}
+
+function tick(){const t=now();let ch=0;
+ S.pets.forEach(p=>{
+  if(!p.h){if(t>=p.hatchAt){p.h=1;p.s=p.m=p.e=80;p.t=t;if(!S.col.includes(p.sp))S.col.push(p.sp);
+    note="🎉 Вылупился: "+SP[p.sp][1]+"!";haptic("notificationOccurred","success");ch=1}}
+  else{const h=(t-p.t)/36e5;for(const k in DEC)p[k]=cl(p[k]-DEC[k]*h);p.t=t}});
+ return ch}
+
+function act(a){const p=cur();if(!p||!p.h)return;const[em,nm,,,food]=SP[p.sp];
+ if(a=="f"){if(p.s>95)note=nm+" не голоден";else{p.s=cl(p.s+30);p.m=cl(p.m+3);note=em+" ест "+food+"!"}}
+ else if(a=="p"){if(p.e<15)note=nm+" слишком устал";else{p.m=cl(p.m+25);p.e=cl(p.e-15);p.s=cl(p.s-8);note=em+" играет!"}}
+ else{if(p.e>95)note=nm+" не хочет спать";else{p.e=cl(p.e+40);note=em+" сладко поспал. Zzz"}}
+ haptic("impactOccurred","light");save();draw()}
+
+const bar=(id,v)=>`<div class="row"><span>${id[1]}</span><div class="bar"><i id="b${id[0]}" style="width:${v}%"></i></div></div>`;
+const mm=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")};
+
+function draw(){
+ document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t==tab));
+ const app=document.getElementById("app");const p=cur();let h="";
+ if(tab=="pet"){
+  if(!p.h){h=`<div class="card"><div class="big egg">${EGG[SP[p.sp][2]]}</div><h2>Загадочное яйцо</h2><p class="hint">Вылупится через <b id="tm">${mm(p.hatchAt-now())}</b></p><p class="hint">Кто же там внутри? 👀</p></div>`}
+  else{const[em,nm,r,k,food]=SP[p.sp];const m=p.mut>=0?MUT[p.mut]:null;
+   h=`<div class="card"><div class="big ${m?m[1]:""}">${em}</div><h2>${m?m[0]+" ":""}${nm}</h2><p class="hint">${R[r][0]} · ${k} · любит ${food}</p>
+   ${bar(["s","🍖 Сытость"],p.s)}${bar(["m","😊 Настроение"],p.m)}${bar(["e","⚡ Энергия"],p.e)}
+   <div class="acts"><button data-a="f">🍖 Кормить</button><button data-a="p">🎾 Играть</button><button data-a="s">😴 Спать</button></div>
+   <div class="note">${note}</div></div>`}}
+ else if(tab=="pets"){
+  const left=COOLDOWN-(now()-S.lastEgg);
+  h=S.pets.map(q=>`<div class="item ${q.id==p.id?"on":""}" data-pick="${q.id}"><span>${q.h?SP[q.sp][0]+" "+SP[q.sp][1]:"🥚 Яйцо"}</span><span class="hint">${q.h?"":mm(q.hatchAt-now())}</span></div>`).join("")+
+  `<div class="acts"><button data-a="n" ${left>0?'class="sec"':""}>${left>0?`🥚 Новое яйцо через ${Math.floor(left/36e5)} ч ${Math.floor(left%36e5/6e4)} мин`:"🥚 Получить новое яйцо"}</button></div>`}
+ else{
+  h=`<div class="card col"><b>📖 Книга питомцев: ${S.col.length}/${Object.keys(SP).length}</b><br>`+
+  Object.keys(R).map(r=>`${R[r][0]}: `+Object.keys(SP).filter(k=>SP[k][2]==r).map(k=>S.col.includes(k)?SP[k][0]+" "+SP[k][1]:"❓").join("  ")).join("<br>")+"</div>"}
+ app.innerHTML=h}
+
+document.addEventListener("click",e=>{
+ const t=e.target.closest("[data-t],[data-a],[data-pick]");if(!t)return;
+ if(t.dataset.t){tab=t.dataset.t;note="";draw()}
+ else if(t.dataset.pick){S.active=+t.dataset.pick;tab="pet";note="";save();draw()}
+ else if(t.dataset.a=="n"){if(now()-S.lastEgg>=COOLDOWN){newEgg();tab="pet";note="";save();haptic("notificationOccurred","success");draw()}}
+ else act(t.dataset.a)});
+
+let n=0;
+(async()=>{
+ S=(await load())||{pets:[],active:0,lastEgg:0,col:[]};
+ if(!S.pets.length){newEgg();save()}
+ if(tick())save();draw();
+ setInterval(()=>{
+  const ch=tick();if(ch){save();draw();return}
+  const p=cur();
+  if(tab=="pet"&&p.h){for(const k of["s","m","e"]){const el=document.getElementById("b"+k);if(el)el.style.width=p[k]+"%"}}
+  else if(tab=="pet"){const el=document.getElementById("tm");if(el)el.textContent=mm(p.hatchAt-now())}
+  if(++n%15==0)save()},1000);
+})();
+</script>
+</body>
+</html>
